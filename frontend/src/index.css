@@ -1,0 +1,142 @@
+/* Asphalt at Night: the interstate after dark, read by headlight.
+   Graphite asphalt in tonal steps is the ground; lane-paint white is the ink and the one action
+   colour; the risk palette (lib/risk.ts) is the only hue, tuned like retroreflective sign sheeting.
+   Fields are separated by tone, never by hairline rules. */
+
+:root {
+  /* Asphalt is warm black-brown, not dashboard graphite: bitumen and aggregate under headlight. */
+  --asphalt-0: #12110f; /* shell bar, map casing */
+  --asphalt-1: #191816; /* panel ground */
+  --asphalt-2: #211f1c; /* fields, raised rows, inputs */
+  --asphalt-3: #2b2825; /* hover, raised strips */
+  --asphalt-4: #38342f; /* control edges */
+  --paint: #eeece4; /* lane paint: text, the action colour */
+  --paint-hover: #ffffff;
+  --paint-2: #b9b5ad; /* secondary text */
+  --paint-3: #999389; /* tertiary text, >= 4.5:1 on every asphalt tone up to asphalt-3 */
+  /* Barricade: No-Travel red with white stripes, for lines and bands. */
+  --barricade: repeating-linear-gradient(-45deg, #d9233f 0 4px, var(--paint) 4px 8px);
+  --sign-black: #121416; /* legend on the white sign plate */
+
+  --font: 'Atkinson Hyperlegible Next Variable', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+
+  --text-xs: 0.75rem; /* 12 */
+  --text-sm: 0.8125rem; /* 13 */
+  --text-md: 0.9375rem; /* 15 */
+  --text-lg: 1.0625rem; /* 17 */
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius: 4px; /* stamped-plate corners: signs, plates, controls */
+  /* Lane paint, dashed: the divider between routes and between parts of a result. */
+  --lane-dash: repeating-linear-gradient(90deg, rgb(238 236 228 / 0.3) 0 14px, transparent 14px 26px);
+  --panel-width: 464px;
+  --shell-height: 52px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-float: 0 10px 30px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.35);
+
+  color-scheme: dark;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  color: var(--paint);
+  background: var(--asphalt-1);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-size: var(--text-md);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: var(--paint);
+  color: var(--asphalt-0);
+}
+
+input {
+  caret-color: var(--paint);
+}
+
+:focus-visible {
+  outline: 2px dashed var(--paint);
+  outline-offset: 3px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--asphalt-4) transparent;
+}
+
+/* Figures: same face, aligned digits. No monospace anywhere. */
+.figure,
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.level-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
