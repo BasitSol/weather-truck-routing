@@ -16,7 +16,11 @@ class CachedRouting:
     def __init__(self, inner: RoutingProvider, ttl_s: int) -> None:
         self.inner, self.ttl_s, self.name = inner, ttl_s, inner.name
 
-    async def routes(self, origin: Place, destination: Place, gross_lb: int) -> list[Route]:
+    async def routes(
+        self, origin: Place, destination: Place, gross_lb: int, via: LatLon | None = None
+    ) -> list[Route]:
+        if via is not None:  # single detour requests are part of a cached trip answer, not cached alone
+            return await self.inner.routes(origin, destination, gross_lb, via=via)
         raw = f"{origin.lat:.5f},{origin.lon:.5f}|{destination.lat:.5f},{destination.lon:.5f}|{gross_lb}"
         key = f"routes:{self.name}:{hashlib.sha1(raw.encode()).hexdigest()}"
         hit: list[Route] | None = cache.get(key)

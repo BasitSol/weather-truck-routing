@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 
 from trips.api.errors import ApiError
 from trips.api.serializers import AnalyzeRequestSerializer, GeocodeQuerySerializer, present
-from trips.providers.base import NoRouteError, ProviderError
+from trips.providers.base import NoRouteError, ProviderError, RateLimitedError
 from trips.services import providers
 from trips.services.analyze import WeatherUnavailable, analyze
 from trips.services.timezones import tz_at
@@ -36,6 +36,18 @@ class AnalyzeView(APIView):
             )
         except NoRouteError as exc:
             raise ApiError(404, "no_route", str(exc)) from exc
+        except RateLimitedError as exc:
+            if exc.provider == "open-meteo":
+                raise ApiError(
+                    503,
+                    "weather_busy",
+                    "The free weather service is limiting requests right now. Try again in a minute.",
+                ) from exc
+            raise ApiError(
+                503,
+                "routing_busy",
+                "The routing service is limiting requests right now. Try again in a minute.",
+            ) from exc
         except ProviderError as exc:
             raise ApiError(
                 502,

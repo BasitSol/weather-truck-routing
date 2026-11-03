@@ -13,10 +13,15 @@ HEAT_HOURS = 48  # slider range; series hold HEAT_HOURS + 1 values (hour 0 … h
 
 
 def corridor_points(routes: list[Route], spacing_mi: float = 10, cap: int = 150) -> list[LatLon]:
-    """Grid-snapped points every `spacing_mi` along each route, merged across routes."""
+    """Grid-snapped points every `spacing_mi` along each route, merged across routes.
+
+    `cap` is shared by all routes, so long trips with several routes stay within the weather
+    service's free request budget; the spacing widens instead.
+    """
     seen: dict[LatLon, None] = {}
+    total_mi = sum(r.length_mi for r in routes)
+    spacing = max(spacing_mi, total_mi / max(cap - 1, 1))
     for route in routes:
-        spacing = max(spacing_mi, route.length_mi / max(cap - 1, 1))
         n = int(route.length_mi // spacing)
         for i in range(n + 1):
             seen.setdefault(snap(point_at_mile(route.points, route.cum_mi, i * spacing)), None)

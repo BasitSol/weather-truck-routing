@@ -12,6 +12,7 @@ from trips.providers.base import GeocodeProvider, RoutingProvider, WeatherProvid
 from trips.providers.open_meteo import OpenMeteoWeather
 from trips.providers.photon import PhotonGeocoder
 from trips.providers.valhalla import FallbackRouting, ValhallaRouting
+from trips.services.alternatives import DetourRouting
 from trips.services.cache import CachedGeocoder, CachedRouting, CachedWeather
 
 _overrides: dict[str, Any] = {}
@@ -27,7 +28,8 @@ def routing() -> RoutingProvider:
             settings.STADIA_ROUTE_URL, settings.HTTP_USER_AGENT, api_key=settings.STADIA_API_KEY
         )
         inner = FallbackRouting(stadia, public)
-    return CachedRouting(inner, settings.CACHE_TTL_ROUTES)
+    # Detours top up trips the service offers fewer than three routes for; the cache keeps the result.
+    return CachedRouting(DetourRouting(inner), settings.CACHE_TTL_ROUTES)
 
 
 def routing_service() -> str:

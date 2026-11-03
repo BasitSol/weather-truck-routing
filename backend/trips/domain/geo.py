@@ -98,3 +98,58 @@ def distinct_routes(
         if not same:
             kept.append(r)
     return kept
+
+
+# --- Detour waypoints, for extra route options when the routing service offers too few (D15) ---
+
+MILES_PER_DEG_LAT = EARTH_RADIUS_MI * math.pi / 180
+
+
+def _plane(a: LatLon, b: LatLon) -> tuple[LatLon, float, float, float]:
+    """Midpoint of a→b and the a→b vector in miles (east, north) on a local flat plane."""
+    mid = LatLon((a.lat + b.lat) / 2, (a.lon + b.lon) / 2)
+    kx = math.cos(math.radians(mid.lat)) * MILES_PER_DEG_LAT
+    east, north = (b.lon - a.lon) * kx, (b.lat - a.lat) * MILES_PER_DEG_LAT
+    return mid, kx, east, north
+
+
+def detour_points(a: LatLon, b: LatLon, fraction: float) -> tuple[LatLon, LatLon]:
+    """Two waypoints off the midpoint of a→b, one each side of the direct line, `fraction` of the
+    trip's straight-line length away. A route forced through one follows a different corridor."""
+    mid, kx, east, north = _plane(a, b)
+    length = math.hypot(east, north)
+    if length == 0:
+        return mid, mid
+    offset = fraction * haversine_mi(a, b)
+    perp_east, perp_north = -north / length * offset, east / length * offset  # left of travel
+    left = LatLon(round(mid.lat + perp_north / MILES_PER_DEG_LAT, 6), round(mid.lon + perp_east / kx, 6))
+    right = LatLon(round(mid.lat - perp_north / MILES_PER_DEG_LAT, 6), round(mid.lon - perp_east / kx, 6))
+    return left, right
+
+
+def side_of_line(a: LatLon, b: LatLon, p: LatLon) -> str:
+    """Compass side of the direct a→b line that `p` lies on: "north", "south", "east" or "west"."""
+    mid, kx, _, _ = _plane(a, b)
+    east, north = (p.lon - mid.lon) * kx, (p.lat - mid.lat) * MILES_PER_DEG_LAT
+    if abs(north) >= abs(east):
+        return "north" if north >= 0 else "south"
+    return "east" if east >= 0 else "west"
+
+
+def doubles_back(
+    route: Route, near_mi: float = 0.6, min_gap_mi: float = 15.0, min_overlap_mi: float = 5.0
+) -> bool:
+    """Whether a route drives back along road it already used: a later stretch, at least
+    `min_gap_mi` further on, running within `near_mi` of an earlier one for `min_overlap_mi` or more.
+    That is the out-and-back spur a waypoint can force, not a real alternative."""
+    step = max(1.0, route.length_mi / 400)  # at most ~400 samples, so this stays cheap
+    miles = [i * step for i in range(int(route.length_mi / step) + 1)]
+    samples = [point_at_mile(route.points, route.cum_mi, m) for m in miles]
+    overlap = 0.0
+    for i, (mi, p) in enumerate(zip(miles, samples, strict=True)):
+        later = (q for mj, q in zip(miles[i + 1 :], samples[i + 1 :], strict=True) if mj - mi >= min_gap_mi)
+        if any(haversine_mi(p, q) <= near_mi for q in later):
+            overlap += step
+            if overlap >= min_overlap_mi:
+                return True
+    return False

@@ -84,7 +84,7 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [API](docs/API.md) · [deci
 
 ## Tests
 
-- **Backend, 164 tests (pytest), 96% line coverage (domain rules 97 to 100%):**
+- **Backend, 184 tests (pytest), 96% line coverage (domain rules 97 to 100%):**
   - every threshold boundary and load rule;
   - a Hypothesis property that raising any input never lowers risk;
   - weather-at-ETA semantics, sampling and mile ownership;

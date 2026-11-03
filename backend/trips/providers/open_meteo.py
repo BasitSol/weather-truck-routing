@@ -16,7 +16,7 @@ import httpx
 
 from trips.domain.models import LatLon
 from trips.domain.weather import HourlyForecast
-from trips.providers.base import ProviderError, client, request_json
+from trips.providers.base import ProviderError, RateLimitedError, client, request_json
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ class OpenMeteoWeather:
         chunks = [cells[i : i + self.chunk_size] for i in range(0, len(cells), self.chunk_size)]
         gate = asyncio.Semaphore(self.concurrency)
         out: dict[LatLon, HourlyForecast] = {}
+        throttled: list[RateLimitedError] = []
 
         async with client(self.user_agent) as http:
 
@@ -70,6 +71,9 @@ class OpenMeteoWeather:
                         parsed = {
                             c: _parse_location(c, loc) for c, loc in zip(chunk, locations, strict=False)
                         }
+                    except RateLimitedError as exc:
+                        throttled.append(exc)
+                        return
                     except (
                         ProviderError,
                         httpx.HTTPError,
@@ -83,6 +87,10 @@ class OpenMeteoWeather:
                 out.update(parsed)
 
             await asyncio.gather(*(fetch(c) for c in chunks))
+        if throttled:
+            # Throttled cells are not "no forecast"; scoring them as Unknown would skew the ranking.
+            log.warning("weather rate-limited: %d of %d chunks refused", len(throttled), len(chunks))
+            raise throttled[0]
         return out
 
 

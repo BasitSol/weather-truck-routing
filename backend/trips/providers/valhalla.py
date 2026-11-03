@@ -13,7 +13,7 @@ from typing import Any
 import httpx
 
 from trips.domain.geo import cumulative_miles
-from trips.domain.models import Place, Route
+from trips.domain.models import LatLon, Place, Route
 from trips.providers.base import NoRouteError, ProviderError, client, request_json
 from trips.providers.polyline import decode
 
@@ -34,15 +34,19 @@ class ValhallaRouting:
         self.backoff_s = backoff_s
         self.api_key = api_key  # hosted Valhalla (e.g. Stadia Maps); the public demo server needs none
 
-    async def routes(self, origin: Place, destination: Place, gross_lb: int) -> list[Route]:
+    async def routes(
+        self, origin: Place, destination: Place, gross_lb: int, via: LatLon | None = None
+    ) -> list[Route]:
+        locations: list[dict[str, object]] = [{"lat": origin.lat, "lon": origin.lon}]
+        if via is not None:
+            # "through": pass by the waypoint without stopping or turning around there.
+            locations.append({"lat": via.lat, "lon": via.lon, "type": "through"})
+        locations.append({"lat": destination.lat, "lon": destination.lon})
         body = {
-            "locations": [
-                {"lat": origin.lat, "lon": origin.lon},
-                {"lat": destination.lat, "lon": destination.lon},
-            ],
+            "locations": locations,
             "costing": "truck",
             "costing_options": {"truck": {"weight": round(gross_lb * LB_TO_METRIC_TON, 2)}},
-            "alternates": 2,
+            "alternates": 0 if via is not None else 2,
             "units": "miles",
             "directions_type": "maneuvers",
             # Hosted Valhalla (Stadia) omits maneuvers, and with them per-stretch times, without narrative.
@@ -80,13 +84,15 @@ class FallbackRouting:
     def __init__(self, primary: ValhallaRouting, secondary: ValhallaRouting) -> None:
         self.primary, self.secondary = primary, secondary
 
-    async def routes(self, origin: Place, destination: Place, gross_lb: int) -> list[Route]:
+    async def routes(
+        self, origin: Place, destination: Place, gross_lb: int, via: LatLon | None = None
+    ) -> list[Route]:
         try:
-            routes = await self.primary.routes(origin, destination, gross_lb)
+            routes = await self.primary.routes(origin, destination, gross_lb, via=via)
         except ProviderError as exc:
             log.warning("primary routing failed (%s); trying the fallback server", exc.detail)
-            return await self.secondary.routes(origin, destination, gross_lb)
-        if len(routes) >= len(LABELS):
+            return await self.secondary.routes(origin, destination, gross_lb, via=via)
+        if via is not None or len(routes) >= len(LABELS):  # a through-waypoint request asks for one route
             return routes
         try:
             return routes + await self.secondary.routes(origin, destination, gross_lb)

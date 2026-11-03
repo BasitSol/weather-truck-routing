@@ -44,6 +44,14 @@ def test_corridor_points_are_capped_per_route() -> None:
     assert len(pts) <= 50
 
 
+def test_the_cap_is_shared_by_all_routes_so_extra_routes_do_not_multiply_weather_requests() -> None:
+    routes = [straight_route(f"r{i}", -105.0 - i) for i in range(3)]  # three separate corridors
+
+    pts = corridor_points(routes, spacing_mi=1, cap=60)
+
+    assert len(pts) <= 60 + len(routes)  # the budget, plus each route's end point
+
+
 def test_heat_series_has_one_level_per_hour_inclusive_of_hour_48() -> None:
     hours = 60
     f = HourlyForecast(

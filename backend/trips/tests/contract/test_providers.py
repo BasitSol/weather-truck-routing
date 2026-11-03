@@ -9,7 +9,7 @@ import pytest
 import respx
 
 from trips.domain.models import LatLon, Place
-from trips.providers.base import NoRouteError, ProviderError
+from trips.providers.base import NoRouteError, ProviderError, RateLimitedError
 from trips.providers.open_meteo import OpenMeteoWeather
 from trips.providers.photon import PhotonGeocoder
 from trips.providers.polyline import decode
@@ -61,6 +61,36 @@ async def test_valhalla_sends_truck_costing_with_weight_in_metric_tons() -> None
     assert sent["costing"] == "truck"
     assert sent["alternates"] == 2
     assert sent["costing_options"]["truck"]["weight"] == pytest.approx(19.96, abs=0.01)
+
+
+@respx.mock
+async def test_valhalla_routes_through_a_waypoint_without_stopping_and_asks_for_one_route() -> None:
+    route = respx.post(VALHALLA).mock(
+        return_value=httpx.Response(200, json=json.loads((FIXTURES / "valhalla_den_slc.json").read_text()))
+    )
+
+    await ValhallaRouting(VALHALLA).routes(DENVER, SLC, gross_lb=44_000, via=LatLon(40.5, -108.0))
+
+    sent = json.loads(route.calls.last.request.content)
+    assert sent["locations"][1] == {"lat": 40.5, "lon": -108.0, "type": "through"}
+    assert [loc["lat"] for loc in sent["locations"]] == [DENVER.lat, 40.5, SLC.lat]
+    assert sent["alternates"] == 0
+
+
+@respx.mock
+async def test_fallback_passes_a_waypoint_to_the_primary_without_topping_up() -> None:
+    payload = json.loads((FIXTURES / "valhalla_den_slc.json").read_text())
+    payload["alternates"] = []
+    primary_route = respx.post("https://primary.test/route").mock(
+        return_value=httpx.Response(200, json=payload)
+    )
+    secondary_route = respx.post(VALHALLA).mock(return_value=httpx.Response(200, json=payload))
+    routing = FallbackRouting(ValhallaRouting("https://primary.test/route"), ValhallaRouting(VALHALLA))
+
+    routes = await routing.routes(DENVER, SLC, 44_000, via=LatLon(40.5, -108.0))
+
+    assert len(routes) == 1
+    assert primary_route.called and not secondary_route.called
 
 
 @respx.mock
@@ -157,6 +187,22 @@ async def test_a_failed_weather_chunk_leaves_only_its_cells_missing() -> None:
     out = await OpenMeteoWeather(OPEN_METEO, chunk_size=2, backoff_s=0).hourly(cells, START, END)
 
     assert set(out) == set(cells[:2])
+
+
+@respx.mock
+async def test_a_rate_limited_weather_chunk_fails_the_whole_request_instead_of_leaving_gaps() -> None:
+    cells = [LatLon(40.0 + i * 0.05, -105.0) for i in range(3)]
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        if request.url.params["latitude"] == "40.1":  # the second chunk is refused for rate limiting
+            return httpx.Response(429)
+        return httpx.Response(200, json=[_om_location(c.lat, c.lon, 5) for c in cells[:2]])
+
+    respx.get(OPEN_METEO).mock(side_effect=upstream)
+
+    # Throttled cells are not "no forecast": scoring them as Unknown would skew the ranking.
+    with pytest.raises(RateLimitedError):
+        await OpenMeteoWeather(OPEN_METEO, chunk_size=2, backoff_s=0).hourly(cells, START, END)
 
 
 @respx.mock

@@ -11,7 +11,7 @@ from django.core.cache import cache
 from django.test import Client
 
 from trips.domain.models import Place
-from trips.providers.base import NoRouteError, ProviderError
+from trips.providers.base import NoRouteError, ProviderError, RateLimitedError
 from trips.providers.fakes import FixedGeocoder, RecordedRouting, SyntheticWeather
 from trips.services import providers
 
@@ -206,6 +206,34 @@ def test_total_weather_outage_is_a_502_not_a_silent_low(client: Client) -> None:
 
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "weather_unavailable"
+
+
+def test_a_rate_limited_weather_service_is_a_503_asking_to_retry(client: Client) -> None:
+    class Throttled(SyntheticWeather):
+        async def hourly(self, cells, start_utc, end_utc):  # type: ignore[no-untyped-def]
+            raise RateLimitedError("open-meteo", "HTTP 429", 429)
+
+    with providers.override(routing=RecordedRouting(FIXTURE), weather=Throttled()):
+        res = post(client, trip())
+
+    assert res.status_code == 503
+    body = res.json()["error"]
+    assert body["code"] == "weather_busy"
+    assert "try again in a minute" in body["message"].lower()
+
+
+def test_a_rate_limited_routing_service_is_reported_as_routing_not_weather(client: Client) -> None:
+    class ThrottledRouting:
+        name = "valhalla"
+
+        async def routes(self, origin, destination, gross_lb, via=None):  # type: ignore[no-untyped-def]
+            raise RateLimitedError("valhalla", "HTTP 429", 429)
+
+    with providers.override(routing=ThrottledRouting(), weather=SyntheticWeather()):
+        res = post(client, trip())
+
+    assert res.status_code == 503
+    assert res.json()["error"]["code"] == "routing_busy"
 
 
 def test_health(client: Client) -> None:

@@ -95,6 +95,8 @@ Every non-2xx response: `{ "error": { "code": "…", "message": "…", "fields":
 | 429 | `throttled` | Rate limit (`Retry-After` set) |
 | 502 | `routing_unavailable` | Routing failed after retries |
 | 502 | `weather_unavailable` | **Every** weather request failed. A partial failure is a 200 with Unknown checkpoints and a warning. |
+| 503 | `weather_busy` | The weather service refused requests for rate limiting. Nothing is scored on partial data; try again in a minute. |
+| 503 | `routing_busy` | The routing service refused requests for rate limiting; try again in a minute. |
 | 500 | `internal_error` | Anything else; the message carries a request id |
 
 ## `GET /geocode`

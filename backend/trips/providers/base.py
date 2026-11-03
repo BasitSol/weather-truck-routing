@@ -26,6 +26,10 @@ class ProviderError(Exception):
         self.status = status
 
 
+class RateLimitedError(ProviderError):
+    """The upstream refused requests for rate limiting (HTTP 429 after retries). Retry later."""
+
+
 class NoRouteError(Exception):
     """The routing service answered, but no truck route exists between the two places."""
 
@@ -33,7 +37,11 @@ class NoRouteError(Exception):
 class RoutingProvider(Protocol):
     name: str
 
-    async def routes(self, origin: Place, destination: Place, gross_lb: int) -> list[Route]: ...
+    async def routes(
+        self, origin: Place, destination: Place, gross_lb: int, via: LatLon | None = None
+    ) -> list[Route]:
+        """Route options from origin to destination; with `via`, one route forced through that point."""
+        ...
 
 
 class WeatherProvider(Protocol):
@@ -83,6 +91,7 @@ async def request_json(
                 response.raise_for_status()
                 return response.json()
             if attempt == retries:
-                raise ProviderError(provider, f"HTTP {response.status_code}", response.status_code)
+                cls = RateLimitedError if response.status_code == 429 else ProviderError
+                raise cls(provider, f"HTTP {response.status_code}", response.status_code)
         await asyncio.sleep(backoff_s * (2**attempt) * (0.5 + random.random()))
     raise AssertionError("unreachable")

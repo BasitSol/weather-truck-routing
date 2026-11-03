@@ -23,7 +23,9 @@ class RecordedRouting:
         self.payload = json.loads(fixture.read_text())
         self.error = error
 
-    async def routes(self, origin: Place, destination: Place, gross_lb: int) -> list[Route]:
+    async def routes(
+        self, origin: Place, destination: Place, gross_lb: int, via: LatLon | None = None
+    ) -> list[Route]:
         if self.error:
             raise self.error
         trips = [self.payload["trip"]] + [a["trip"] for a in self.payload.get("alternates", [])]
