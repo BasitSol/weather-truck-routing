@@ -32,8 +32,9 @@ Browser (React + TypeScript SPA)                Django + DRF (one container)    
   5. classify each checkpoint at its ETA, aggregate miles and average risk;
   6. rank, explain and warn;
   7. build 49 hourly levels per corridor point with the same classifier and load rules.
-- **Caching** (in-process): routes 10 min, weather per grid cell 30 min, geocode 24 h. Re-running a
-  trip with a different load reuses the routes and weather, so it returns in well under a second.
+- **Caching** (in-process): routes 10 min, weather per grid cell 30 min, geocode 24 h. Re-running the
+  same trip reuses both, so it returns in well under a second. Changing only the load reuses the
+  weather; routes are requested again, because the truck's weight is part of the routing request.
 - **`trips/api`** validates input, maps errors to one envelope, shapes the response (risk
   segments are sliced from the full-resolution polyline, then simplified), and serves the built SPA.
 
