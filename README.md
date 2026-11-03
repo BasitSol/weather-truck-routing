@@ -5,7 +5,9 @@ destination, departure time and load weight; the app asks a truck routing engine
 checks the forecast every 10, 25 or 50 miles **at the time the truck reaches each point**, scores
 it with the wind, rain, snow and load rules, and recommends a route with a one-sentence reason.
 
-**Live app:** _add the hosted URL here_ · **Walkthrough:** _add the Loom link here_
+**Live app:** https://weather-truck-routing-bobu.onrender.com/ · **Walkthrough:** _add the Loom link here_
+
+> Hosted on Render's free plan: after a quiet spell the first visit takes up to a minute while the app wakes up.
 
 ![Three routes from Denver to Salt Lake City, coloured by risk, with the recommendation and route tickets](docs/screenshots/desktop-result.png)
 
@@ -34,7 +36,10 @@ and prints every checkpoint, which is a quick way to check the logic without the
 ## How it works
 
 1. **Routes.** Valhalla's truck profile returns a route plus two alternates, with the truck's weight
-   applied. Near-identical alternates are dropped.
+   applied. Near-identical alternates are dropped. Where Valhalla finds fewer than three (one
+   interstate dominates, e.g. Dallas to Houston), it is asked again for routes through a waypoint to
+   either side of the direct line; a detour is kept only if it is a different road, at most 50%
+   slower and does not double back, and it is labelled as a detour (D15).
 2. **Checkpoints.** Mile 0, every N miles, and the destination. Each gets a position, an ETA
    from the route's cumulative drive time, and the local time zone of that place.
 3. **Weather at the ETA.** One batched Open-Meteo request fetches every checkpoint and corridor
@@ -93,7 +98,7 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [API](docs/API.md) · [deci
   - end-to-end API contract tests covering partial and total weather outages and validation errors;
   - the ranking rules were also mutation-tested: flipping a strict `>` or dropping a ranking key fails the suite.
 - **Frontend, 55 tests (Vitest):** time zone conversion, load rules, GeoJSON building (including reflector bearings and zoomed-out thinning), sample-label placement, the corridor timeline and readout, the later-departure estimate, form validation, risk metadata, route summaries, UI store.
-- CI (`.github/workflows/ci.yml`) runs ruff, mypy (strict on the domain), pytest, oxlint, tsc, Vitest and the production build.
+- The CI workflow (`.github/workflows/ci.yml`) defines the same checks: ruff, mypy (strict on the domain), pytest, oxlint, tsc, Vitest and the production build. Run them locally with `make lint test build`.
 
 ## Limitations and next steps
 
