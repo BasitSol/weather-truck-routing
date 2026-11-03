@@ -1,0 +1,9 @@
+-r requirements.txt
+pytest>=8
+pytest-django>=4.9
+pytest-cov>=5
+pytest-asyncio>=0.24
+hypothesis>=6.112
+respx>=0.21
+ruff>=0.6
+mypy>=1.11
