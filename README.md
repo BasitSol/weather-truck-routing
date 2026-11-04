@@ -5,7 +5,7 @@ destination, departure time and load weight; the app asks a truck routing engine
 checks the forecast every 10, 25 or 50 miles **at the time the truck reaches each point**, scores
 it with the wind, rain, snow and load rules, and recommends a route with a one-sentence reason.
 
-**Live app:** https://weather-truck-routing-bobu.onrender.com/ · **Walkthrough:** _add the Loom link here_
+**Live app:** https://weather-truck-routing-bobu.onrender.com/ · **Walkthrough (Loom):** https://www.loom.com/share/c55296137cc34a388a6f1c72c2cd579e
 
 > Hosted on Render's free plan: after a quiet spell the first visit takes up to a minute while the app wakes up.
 
